@@ -8,10 +8,10 @@ scan_text :: proc(text: string, info : ^TaskInfo) {
     comment := false
 
     for b in text {
-        if b == ' ' || b == '\t' {
+        if b == ' ' || b == '\t' || b == '\n' {
             continue
         }
-        if b == '\n' {
+        if b == '\r' {
             info.result += 1
             if empty {
                 info.blank += 1

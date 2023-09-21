@@ -90,7 +90,7 @@ main :: proc() {
         total_lines_comment += auto_cast task.comment
         os.close(h)
     }
-    fmt.printf("Total: {}, code lines: {}, blank lines: {}, comment lines: {}\n", 
+    fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m,\n", 
         total_lines, total_lines_code, total_lines_blank, total_lines_comment)
 }
 
