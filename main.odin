@@ -88,6 +88,10 @@ main :: proc() {
         total_lines_code += auto_cast task.code
         total_lines_blank += auto_cast task.blank
         total_lines_comment += auto_cast task.comment
+
+        fmt.printf("[\033[46m {} \033[49m]: {} codes, {} blanks, {} comments, {} total.\n",
+            fi.fullpath,
+            task.code, task.blank, task.comment, task.result)
         os.close(h)
     }
     fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m,\n", 
@@ -152,6 +156,7 @@ task_count_file :: proc(task: thread.Task) {
     lines :i64= 0
     data, read_success := os.read_entire_file_from_handle(h)
     if read_success {
+        info.result = 0
         scan_text(transmute(string)data, info)
         delete(data)
     }

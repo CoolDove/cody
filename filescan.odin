@@ -1,6 +1,5 @@
 package main
 
-import "core:fmt"
 
 scan_text :: proc(text: string, info : ^TaskInfo) {
     lines :i64= 0
@@ -8,10 +7,11 @@ scan_text :: proc(text: string, info : ^TaskInfo) {
     comment := false
 
     for b in text {
-        if b == ' ' || b == '\t' || b == '\n' {
+        if !empty && (b == ' ' || b == '\t' || b == '\r') {
             continue
         }
-        if b == '\r' {
+        
+        if b == '\n' {
             info.result += 1
             if empty {
                 info.blank += 1
