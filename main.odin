@@ -7,6 +7,7 @@ import "core:thread"
 import "core:strings"
 import "core:unicode/utf8"
 import "core:path/filepath"
+import "core:time"
 
 extensions :[]string= {
     ".cs",
@@ -21,6 +22,16 @@ extensions :[]string= {
 
 CountContext :: struct {
     handles : [dynamic]os.Handle,
+    tasks : [dynamic]^TaskInfo,
+    thread_pool : ^thread.Pool,
+    stopwatch : ^time.Stopwatch,
+    last_frame_time : f64,
+}
+
+TaskInfo :: struct {
+    ctx : ^CountContext,
+    idx : i64,
+    result : i64,
 }
 
 main :: proc() {
@@ -28,38 +39,45 @@ main :: proc() {
 
     dir := os.args[1]
 
-    ctx : CountContext
-
-    ite(dir, &ctx)
-    defer delete(ctx.handles)
-
-    tasks := make([]TaskInfo, len(ctx.handles))
-
     thread_pool : thread.Pool
     thread.pool_init(&thread_pool, context.allocator, 8)
-    thread.pool_start(&thread_pool)
-    defer thread.pool_destroy(&thread_pool)
 
-    for h, idx in ctx.handles {
-        tasks[idx] = TaskInfo {
-            ctx = &ctx,
-            idx = cast(i64)idx,
-            result = -1,
-        }
-        thread.pool_add_task(&thread_pool, context.allocator, task_count_file, &tasks[idx])
+    framewatch : time.Stopwatch
+
+    ctx :CountContext= {
+        make([dynamic]os.Handle),
+        make([dynamic]^TaskInfo),
+        &thread_pool,
+        &framewatch,
+        0.0,
     }
+    
+    defer {
+        for t in ctx.tasks do free(t)
+        delete(ctx.tasks)
+        delete(ctx.handles)
+        thread.pool_destroy(ctx.thread_pool)
+    }
+
+    thread.pool_start(ctx.thread_pool)
+    time.stopwatch_start(ctx.stopwatch)
+
+    ite(dir, &ctx)
+
+    fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(framewatch)))
+
     thread.pool_join(&thread_pool)
     thread.pool_finish(&thread_pool)
+
     total_lines := 0
     for h, idx in ctx.handles {
         fi, err_fi := os.fstat(h)
-        lines := tasks[idx].result
+        lines := ctx.tasks[idx].result
         total_lines += auto_cast lines
-        fmt.printf("{}: {}\n", fi.fullpath, lines)
+        // fmt.printf("{}: {}\n", fi.fullpath, lines)
         os.close(h)
     }
     fmt.printf("Total: {}\n", total_lines)
-    
 }
 
 ite :: proc(path: string, ctx: ^CountContext) {
@@ -74,9 +92,36 @@ ite :: proc(path: string, ctx: ^CountContext) {
             }
         }
     } else if is_ext_match(filepath.ext(path)) {
-        h, err := os.open(path)
-        append(&ctx.handles, h)
+        if h, err := os.open(path); err == os.ERROR_NONE {
+            append_task(ctx, h)
+        }
+        update(ctx)
     }
+}
+
+update :: proc(using ctx: ^CountContext) {
+    ms := time.duration_seconds(time.stopwatch_duration(ctx.stopwatch^))
+    if ms - ctx.last_frame_time > 0.01 {
+        finished := 0
+        for task, idx in tasks {
+            if task.result != -1 do finished += 1
+        }
+        last_frame_time = ms
+        fmt.printf("Progress: {}/{}\n", finished, len(tasks))
+    }
+}
+
+append_task :: proc(ctx: ^CountContext, handle: os.Handle) {
+    idx := len(ctx.handles)
+    append(&ctx.handles, handle)
+    task := new(TaskInfo) 
+    task^ = TaskInfo {
+        ctx = ctx,
+        idx = auto_cast idx,
+        result = -1,
+    }
+    append(&ctx.tasks, task)
+    thread.pool_add_task(ctx.thread_pool, context.allocator, task_count_file, task)
 }
 
 is_ext_match :: proc(extension : string) -> bool {
@@ -86,7 +131,7 @@ is_ext_match :: proc(extension : string) -> bool {
 
 task_count_file :: proc(task: thread.Task) {
     context.allocator = task.allocator
-    info :^TaskInfo= cast(^TaskInfo)task.data
+    info := cast(^TaskInfo)task.data
     using info
     h := ctx.handles[idx]
 
@@ -100,9 +145,16 @@ task_count_file :: proc(task: thread.Task) {
         info.result = lines
     }
 }
-
-TaskInfo :: struct {
-    ctx : ^CountContext,
-    idx : i64,
-    result : i64,
+// Timer
+Timer :: struct {
+    stopwatch : time.Stopwatch,
+}
+timer_begin :: proc() -> Timer {
+    w : time.Stopwatch
+    time.stopwatch_start(&w)
+    return Timer {w}
+}
+timer_end :: proc(timer: ^Timer) -> f64 {
+    time.stopwatch_stop(&timer.stopwatch)
+    return time.duration_seconds(time.stopwatch_duration(timer.stopwatch))
 }
