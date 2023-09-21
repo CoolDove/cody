@@ -31,11 +31,21 @@ CountContext :: struct {
 TaskInfo :: struct {
     ctx : ^CountContext,
     idx : i64,
+
     result : i64,
+    comment : i64,
+    code : i64,
+    blank : i64,
 }
 
 main :: proc() {
     if len(os.args) < 2 do return
+
+    {
+        test_info : TaskInfo
+        test_content, _ := os.read_entire_file("./main.odin", context.temp_allocator)
+        scan_text(transmute(string)test_content, &test_info)
+    }
 
     dir := os.args[1]
 
@@ -69,15 +79,19 @@ main :: proc() {
     thread.pool_join(&thread_pool)
     thread.pool_finish(&thread_pool)
 
-    total_lines := 0
+    total_lines, total_lines_code, total_lines_blank, total_lines_comment := 0,0,0,0
+
     for h, idx in ctx.handles {
         fi, err_fi := os.fstat(h)
-        lines := ctx.tasks[idx].result
-        total_lines += auto_cast lines
-        // fmt.printf("{}: {}\n", fi.fullpath, lines)
+        task := ctx.tasks[idx]
+        total_lines += auto_cast task.result
+        total_lines_code += auto_cast task.code
+        total_lines_blank += auto_cast task.blank
+        total_lines_comment += auto_cast task.comment
         os.close(h)
     }
-    fmt.printf("Total: {}\n", total_lines)
+    fmt.printf("Total: {}, code lines: {}, blank lines: {}, comment lines: {}\n", 
+        total_lines, total_lines_code, total_lines_blank, total_lines_comment)
 }
 
 ite :: proc(path: string, ctx: ^CountContext) {
@@ -101,13 +115,13 @@ ite :: proc(path: string, ctx: ^CountContext) {
 
 update :: proc(using ctx: ^CountContext) {
     ms := time.duration_seconds(time.stopwatch_duration(ctx.stopwatch^))
-    if ms - ctx.last_frame_time > 0.01 {
+    if ms - ctx.last_frame_time > 0.05 {
         finished := 0
         for task, idx in tasks {
             if task.result != -1 do finished += 1
         }
         last_frame_time = ms
-        fmt.printf("Progress: {}/{}\n", finished, len(tasks))
+        fmt.printf("\0337\033[2KProgress: {}/{}\0338", finished, len(tasks))
     }
 }
 
@@ -138,11 +152,8 @@ task_count_file :: proc(task: thread.Task) {
     lines :i64= 0
     data, read_success := os.read_entire_file_from_handle(h)
     if read_success {
-        for b in data {
-            if b == '\n' do lines+=1
-        }
+        scan_text(transmute(string)data, info)
         delete(data)
-        info.result = lines
     }
 }
 // Timer
