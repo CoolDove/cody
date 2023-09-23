@@ -1,1 +1,5 @@
 *.exe
+*.pdb
+
+
+.vscode/
