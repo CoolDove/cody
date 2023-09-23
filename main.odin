@@ -10,6 +10,7 @@ import "core:path/filepath"
 import "core:time"
 
 import clc "./collection"
+import ansi "./ansi_code"
 
 extensions :[]string= {
     ".cs",
@@ -133,7 +134,12 @@ update :: proc(using ctx: ^CountContext) {
             if task.result != -1 do finished += 1
         }
         last_frame_time = ms
-        fmt.printf("\0337\033[2KProgress: {}/{}\0338", finished, pga_len(&ctx.tasks))
+        ansi.show_cursor(false)
+        ansi.store_cursor()
+        ansi.erase(.FromCursorToEnd)
+        fmt.printf("Progress: {}/{}", finished, pga_len(&ctx.tasks))
+        ansi.restore_cursor()
+        ansi.show_cursor(true)
     }
 }
 
