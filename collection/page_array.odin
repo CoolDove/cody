@@ -21,7 +21,7 @@ pga_delete :: proc(using pga: ^PageArray($T)) {
     for page in pages do delete(page)
     delete(pages)
 }
-pga_append :: proc(using pga: ^PageArray($T), elem: T) {
+pga_append :: proc(using pga: ^PageArray($T), elem: T) -> ^T {
     page_id := length/page_size
     idx := length%page_size
     if page_id == len(pages) - 1 {
@@ -29,12 +29,37 @@ pga_append :: proc(using pga: ^PageArray($T), elem: T) {
     }
     pages[page_id][idx] = elem
     length += 1
+    return &pages[page_id][idx]
 }
 
 pga_pop :: proc(using pga: ^PageArray($T)) -> T {
     assert(length>0, "The PageArray is empty, you cannot pop element from it.")
     length -= 1
-    return pages[length/page_size][length%page_size]
+    return pga_get(pga, length+1)
+}
+
+pga_get :: #force_inline proc(using pga: ^PageArray($T), idx: int) -> T {
+    assert(idx<length&&idx>-1, "PageArray: Invalid index.")
+    return pages[idx/page_size][idx%page_size]
+}
+
+pga_get_ptr :: #force_inline proc(using pga: ^PageArray($T), idx: int) -> ^T {
+    assert(idx<length&&idx>-1, "PageArray: Invalid index.")
+    return &pages[idx/page_size][idx%page_size]
+}
+
+pga_ite :: proc(using pga: ^PageArray($T), idx: ^int) -> (T,bool) {
+    assert(idx!=nil, "PageArray: Invalid iterator.")
+    if idx^ >= length do return {}, false
+    idx^ = idx^+1
+    return pga_get(pga, idx^-1), true
+}
+
+pga_ite_ptr :: proc(using pga: ^PageArray($T), idx: ^int) -> (^T,bool) {
+    assert(idx!=nil, "PageArray: Invalid iterator.")
+    if idx^ >= length do return {}, false
+    idx^ = idx^+1
+    return pga_get_ptr(pga, idx^-1), true
 }
 
 @private
@@ -42,6 +67,6 @@ _pga_append_page :: proc(using pga: ^PageArray($T)) {
     append(&pga.pages, make_slice([]T, page_size, page_allocator))
 }
 
-pga_len :: proc(using pga: ^PageArray($T)) {
+pga_len :: proc(using pga: ^PageArray($T)) -> int {
     return length
 }

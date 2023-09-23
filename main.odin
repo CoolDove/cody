@@ -9,6 +9,8 @@ import "core:unicode/utf8"
 import "core:path/filepath"
 import "core:time"
 
+import clc "./collection"
+
 extensions :[]string= {
     ".cs",
     ".cpp",
@@ -22,7 +24,7 @@ extensions :[]string= {
 
 CountContext :: struct {
     handles : [dynamic]os.Handle,
-    tasks : [dynamic]^TaskInfo,
+    tasks : clc.PageArray(TaskInfo),
     thread_pool : ^thread.Pool,
     stopwatch : ^time.Stopwatch,
     last_frame_time : f64,
@@ -41,6 +43,10 @@ TaskInfo :: struct {
 main :: proc() {
     if len(os.args) < 2 do return
 
+    tasks : clc.PageArray(TaskInfo)
+
+    clc.pga_make(&tasks, 32); defer clc.pga_delete(&tasks)
+
     {
         test_info : TaskInfo
         test_content, _ := os.read_entire_file("./main.odin", context.temp_allocator)
@@ -49,22 +55,21 @@ main :: proc() {
 
     dir := os.args[1]
 
+    // Init count context things
     thread_pool : thread.Pool
     thread.pool_init(&thread_pool, context.allocator, 8)
 
     framewatch : time.Stopwatch
 
     ctx :CountContext= {
-        make([dynamic]os.Handle),
-        make([dynamic]^TaskInfo),
-        &thread_pool,
-        &framewatch,
-        0.0,
+        handles = make([dynamic]os.Handle),
+        thread_pool = &thread_pool,
+        stopwatch = &framewatch,
     }
+    clc.pga_make(&ctx.tasks, 32)
     
     defer {
-        for t in ctx.tasks do free(t)
-        delete(ctx.tasks)
+        clc.pga_delete(&ctx.tasks)
         delete(ctx.handles)
         thread.pool_destroy(ctx.thread_pool)
     }
@@ -74,7 +79,6 @@ main :: proc() {
 
     ite(dir, &ctx)
 
-    fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(framewatch)))
 
     thread.pool_join(&thread_pool)
     thread.pool_finish(&thread_pool)
@@ -83,17 +87,19 @@ main :: proc() {
 
     for h, idx in ctx.handles {
         fi, err_fi := os.fstat(h)
-        task := ctx.tasks[idx]
+        task := clc.pga_get_ptr(&ctx.tasks, idx)
         total_lines += auto_cast task.result
         total_lines_code += auto_cast task.code
         total_lines_blank += auto_cast task.blank
         total_lines_comment += auto_cast task.comment
 
-        fmt.printf("[\033[46m {} \033[49m]: {} codes, {} blanks, {} comments, {} total.\n",
+        fmt.printf("[\033[45m {} \033[49m]: {} codes, {} blanks, {} comments, {} total.\n",
             fi.fullpath,
             task.code, task.blank, task.comment, task.result)
         os.close(h)
     }
+    fmt.printf("Done\n")
+    fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(framewatch)))
     fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m,\n", 
         total_lines, total_lines_code, total_lines_blank, total_lines_comment)
 }
@@ -120,25 +126,25 @@ ite :: proc(path: string, ctx: ^CountContext) {
 update :: proc(using ctx: ^CountContext) {
     ms := time.duration_seconds(time.stopwatch_duration(ctx.stopwatch^))
     if ms - ctx.last_frame_time > 0.05 {
+        using clc
         finished := 0
-        for task, idx in tasks {
+        idx : int
+        for task in pga_ite(&ctx.tasks, &idx) {
             if task.result != -1 do finished += 1
         }
         last_frame_time = ms
-        fmt.printf("\0337\033[2KProgress: {}/{}\0338", finished, len(tasks))
+        fmt.printf("\0337\033[2KProgress: {}/{}\0338", finished, pga_len(&ctx.tasks))
     }
 }
 
 append_task :: proc(ctx: ^CountContext, handle: os.Handle) {
     idx := len(ctx.handles)
     append(&ctx.handles, handle)
-    task := new(TaskInfo) 
-    task^ = TaskInfo {
+    task := clc.pga_append(&ctx.tasks, TaskInfo {
         ctx = ctx,
         idx = auto_cast idx,
         result = -1,
-    }
-    append(&ctx.tasks, task)
+    })
     thread.pool_add_task(ctx.thread_pool, context.allocator, task_count_file, task)
 }
 
