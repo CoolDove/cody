@@ -2,4 +2,4 @@ directories: "D:/workspc/cody"
 extensions: ".odin", ".glsl"
 output: "./hello_cody.txt"
 thread_count: 8
-quiet : false
+quiet : true

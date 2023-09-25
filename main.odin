@@ -50,16 +50,18 @@ main :: proc() {
 
     total_lines, total_lines_code, total_lines_blank, total_lines_comment := 0,0,0,0
     for h, idx in cody.handles {
-        fi, err_fi := os.fstat(h)
         task := clc.pga_get_ptr(&cody.tasks, idx)
         total_lines += auto_cast task.result
         total_lines_code += auto_cast task.code
         total_lines_blank += auto_cast task.blank
         total_lines_comment += auto_cast task.comment
 
-        fmt.printf("[\033[45m {} \033[49m]: {} codes, {} blanks, {} comments, {} total.\n",
-            fi.fullpath,
-            task.code, task.blank, task.comment, task.result)
+        if !config.quiet {
+            fi, err_fi := os.fstat(h)
+            fmt.printf("[\033[45m {} \033[49m]: {} codes, {} blanks, {} comments, {} total.\n",
+                fi.fullpath,
+                task.code, task.blank, task.comment, task.result)
+        }
         os.close(h)
     }
     fmt.printf("Done\n")
