@@ -27,6 +27,10 @@ main :: proc() {
     if len(os.args) == 1 {
         dir = os.get_current_directory()
     } else if len(os.args) == 2 {
+        if os.args[1] == "help" {
+            help()
+            return
+        }
         dir = os.args[1]
     } else {
         fmt.printf("Invalid args.")
