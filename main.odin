@@ -34,8 +34,15 @@ TaskInfo :: struct {
 }
 
 main :: proc() {
-    if len(os.args) < 2 do return
-    dir := os.args[1]
+    dir :string= os.get_current_directory()
+    if len(os.args) == 1 {
+        dir = os.get_current_directory()
+    } else if len(os.args) == 2 {
+        dir = os.args[1]
+    } else {
+        fmt.printf("Invalid args.")
+        return
+    }
 
     codyrc_init(); defer codyrc_release()
     codyrc_load(dir)

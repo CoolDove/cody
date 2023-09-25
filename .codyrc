@@ -1,6 +1,5 @@
-quite : true, false
 directories: "D:/workspc/cody", "D:/workspc/dude/src"
 extensions: ".odin", ".glsl"
 output: "./hello_cody.txt"
-thread_count: 8, 12.0, "test an invalid array", true
-quite : false, true
+thread_count: 8
+quiet : false

@@ -21,10 +21,6 @@ CodyConfig :: struct {
     thread_count: int,
     task_page_size : int,
 
-    // ##codyrc
-    path: string,
-    source: string,
-
     // ##Other
     _str_pool : clc.StringPool,// Store all the string's copy used in the CodyConfig
 }
@@ -83,14 +79,18 @@ codyrc_load :: proc(dir: string) -> bool {
         match_state : match.Match_State
         value_buffer := make([dynamic]ConfigValue); defer delete(value_buffer)
         for line in split_lines_iterator(&text) {
-            key, value, ok := codyrc_parse_line(line, &match_state)
+            key, value, ok := _codyrc_parse_line(line, &match_state)
             if ok {
                 v, value_parse_ok := _codyrc_parse_value(value, &value_buffer)
                 defer _codyrc_config_value_destroy(&v)
                 if value_parse_ok {
-                    fmt.printf("*{}: {}\n", key, v)
+                    if codyrc_set_value(key, v) {
+                        fmt.printf("*{}: {}\n", key, v)
+                    } else {
+                        fmt.printf("!Failed to set {} : {}\n", key, v)
+                    }
                 } else {
-                    fmt.printf("-failed to parse {} : {}\n", key, value)
+                    fmt.printf("!Failed to parse {} : {}\n", key, value)
                 }
             } else {
                 return false
@@ -102,10 +102,61 @@ codyrc_load :: proc(dir: string) -> bool {
     return true
 }
 
-codyrc_unload :: proc() {
+codyrc_set_value :: proc(key: string, value: ConfigValue) -> bool {
+    using clc
+    if key == "quiet" {
+        if quiet, ok := value.(bool); ok {
+            config.quiet = quiet
+            return true
+        } else do return false
+    } else if key == "output" {
+        if output, ok := value.(string); ok {
+            config.output = strp_append(&config._str_pool, output)
+            return true
+        } else do return false
+    } else if key == "directories" {
+        return set_strings(&config.directories, value)
+    } else if key == "extensions" {
+        return set_strings(&config.extensions, value)
+    } else if key == "thread_count" {
+        if thread_count, ok := value.(f64); ok {
+            config.thread_count = cast(int)thread_count
+            return true
+        } else do return false
+    } else if key == "task_page_size" {
+        if task_page_size, ok := value.(f64); ok {
+            config.task_page_size = cast(int)task_page_size
+            return true
+        } else do return false
+    } else {
+        return false
+    }
+    return false
+
+    set_strings :: proc(buffer: ^[dynamic]string, value: ConfigValue) -> bool {
+        if single_string, ok := value.(string); ok {
+            clear(buffer)
+            append(buffer, strp_append(&config._str_pool, single_string))
+            return true
+        } else if multiple_strings, ok := value.([]ConfigValue); ok {
+            for elem in multiple_strings {// Typecheck
+                if _, ok := elem.(string); !ok do return false
+            }
+            clear(buffer)
+            for str in multiple_strings {
+                append(buffer, strp_append(&config._str_pool, str.(string)))
+            }
+            return true
+        }
+        return false
+    }
 }
 
-codyrc_parse_line :: proc(line: string, match_state : ^match.Match_State) -> (string, string, bool) {
+
+
+
+@(private="file")
+_codyrc_parse_line :: proc(line: string, match_state : ^match.Match_State) -> (string, string, bool) {
     match_state^ = {}
     match_state.pattern = "%s*([%w_]+)%s*:%s*(.*)%s*$"
     match_state.src = line
