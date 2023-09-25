@@ -15,33 +15,43 @@ import clc "./collection"
 CodyConfig :: struct {
     // ##Basic
     quiet: bool,
-    output: string,
-    directories: [dynamic]string,
-    extensions: [dynamic]string,
+    output: clc.PString,
+    directories: [dynamic]clc.PString,
+    extensions: [dynamic]clc.PString,
 
     // ##Performance
     thread_count: int,
     task_page_size : int,
 
     // ##Other
-    _str_pool : clc.StringPool `fmt:"-"`,// Store all the string's copy used in the CodyConfig
+    _str_pool : clc.StringPool,// Store all the string's copy used in the CodyConfig
+}
+ConfigValue :: union {
+    bool,
+    f64,
+    string,
+    []ConfigValue,
 }
 
 config: CodyConfig
 
 codyrc_init :: proc() {
-    using config
-    directories = make([dynamic]string)
-    extensions = make([dynamic]string)
-    _str_pool = clc.strp_make()   
-    
-    append(&extensions,
+    using config, clc
+    directories = make([dynamic]clc.PString)
+    extensions = make([dynamic]clc.PString)
+    _str_pool = strp_make()   
+
+
+    default_extensions : []string= {
         ".c", ".cpp", ".h",
         ".shader", ".glsl", ".hlsl",
         ".cs",
         
         ".odin", ".jai", ".zig",
-    )
+    }
+
+    for ext in default_extensions do append(&extensions, strp_append(&_str_pool, ext))
+    
     thread_count = 8
     task_page_size = 32
 }
@@ -51,24 +61,6 @@ codyrc_release :: proc() {
     delete(directories)
     delete(extensions)
     clc.strp_delete(&_str_pool)
-}
-
-@(private="file")
-_codyrc_append_directory :: proc(directories: ..string) {
-    for dir in directories {
-        append(&config.directories, clc.strp_append(&config._str_pool, dir))
-    }
-}
-@(private="file")
-_codyrc_apply_extensions :: proc(extensions: ..string) {
-    clear(&config.extensions)
-    for ext in extensions {
-        append(&config.extensions, clc.strp_append(&config._str_pool, ext))
-    }
-}
-@(private="file")
-_codyrc_apply_output :: proc(output: string) {
-    config.output = clc.strp_append(&config._str_pool, output)
 }
 
 codyrc_load :: proc(dir: string) -> bool {
@@ -140,7 +132,7 @@ codyrc_set_value :: proc(key: string, value: ConfigValue) -> bool {
     }
     return false
 
-    set_strings :: proc(buffer: ^[dynamic]string, value: ConfigValue) -> bool {
+    set_strings :: proc(buffer: ^[dynamic]clc.PString, value: ConfigValue) -> bool {
         if single_string, ok := value.(string); ok {
             clear(buffer)
             append(buffer, strp_append(&config._str_pool, single_string))
@@ -274,11 +266,4 @@ _codyrc_config_value_destroy :: proc(value: ^ConfigValue) {
 _captured_string :: #force_inline proc(capture: ^match.Capture, source: string) -> string {
     if capture.len < 0 do return {}
     return source[capture.init:capture.init+capture.len]
-}
-
-ConfigValue :: union {
-    bool,
-    f64,
-    string,
-    []ConfigValue,
 }

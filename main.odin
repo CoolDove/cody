@@ -12,17 +12,6 @@ import "core:time"
 import clc "./collection"
 import ansi "./ansi_code"
 
-extensions :[]string= {
-    ".cs",
-    ".cpp",
-    ".h",
-    ".shader",
-    ".glsl",
-
-    ".odin",
-    ".jai",
-}
-
 TaskInfo :: struct {
     ctx : ^CodyContext,
     idx : i64,
@@ -46,7 +35,6 @@ main :: proc() {
 
     codyrc_init(); defer codyrc_release()
     codyrc_load(dir)
-    fmt.printf("CONFIG: {}\n", config)
 
     cody:= cody_create(); defer cody_destroy(&cody)
 
@@ -55,7 +43,7 @@ main :: proc() {
         ite(dir, &cody)
     } else {
         for d in config.directories {
-            ite(d, &cody)
+            ite(clc.pstr_to_string(d), &cody)
         }
     }
     cody_end(&cody)
@@ -82,6 +70,7 @@ main :: proc() {
 
 ite :: proc(path: string, ctx: ^CodyContext) {
     if os.is_dir(path) {
+        if len(path) > 4 && path[len(path)-4:] == ".git" do return
         if dh, err_open := os.open(path); err_open == os.ERROR_NONE {
             defer os.close(dh)
             if fis, err_read_dir := os.read_dir(dh, -1); err_read_dir == os.ERROR_NONE {
@@ -130,7 +119,9 @@ append_task :: proc(cody: ^CodyContext, handle: os.Handle) {
 }
 
 is_ext_match :: proc(extension : string) -> bool {
-    for e in extensions do if extension == e do return true
+    for ext_pstr in config.extensions {
+        if extension == clc.pstr_to_string(ext_pstr) do return true
+    }
     return false
 }
 
