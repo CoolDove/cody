@@ -5,6 +5,7 @@ import "core:io"
 import "core:fmt"
 import "core:thread"
 import "core:strings"
+import "core:math"
 import "core:unicode/utf8"
 import "core:path/filepath"
 import "core:time"
@@ -40,9 +41,9 @@ main :: proc() {
     codyrc_init(); defer codyrc_release()
     codyrc_load(dir)
 
-    cody:= cody_create(); defer cody_destroy(&cody)
+    cody:= cody_create(math.clamp(config.task_page_size, 1, 1024)); defer cody_destroy(&cody)
 
-    cody_begin(&cody)
+    cody_begin(&cody, math.clamp(config.thread_count, 1, 64))
     if len(config.directories) == 0 {
         ite(dir, &cody)
     } else {

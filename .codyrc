@@ -1,3 +1,4 @@
-directories: "./"
 extensions : ".odin"
+thread_count: 8
+task_page_size: 32
 quiet: true

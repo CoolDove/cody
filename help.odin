@@ -9,7 +9,7 @@ help :: proc() {
 
     rc_example :string: 
 `directories: "C:/The/Directory", "./You/Want/To/Count"
-extensions : ".code", ".ext", ".txt"
+extensions : ".code", ".ext",
 quiet: false
 `
     if os.exists("./.codyrc") {

@@ -20,17 +20,17 @@ CodyContext :: struct {
     last_frame_time : f64,
 }
 
-cody_create :: proc(allocator:=context.allocator) -> CodyContext {
+cody_create :: proc(task_page_size: int=32, allocator:=context.allocator) -> CodyContext {
     cody:= CodyContext {
         handles = make([dynamic]os.Handle),
     }
-    clc.pga_make(&cody.tasks, 32)
+    clc.pga_make(&cody.tasks, task_page_size)
     return cody
 }
 
-cody_begin :: proc(cody: ^CodyContext, thread_allocator:= context.allocator) {
+cody_begin :: proc(cody: ^CodyContext, thread_count := 8, thread_allocator:= context.allocator) {
     using thread, time
-    pool_init(&cody.thread_pool, thread_allocator, 8)
+    pool_init(&cody.thread_pool, thread_allocator, thread_count)
     pool_start(&cody.thread_pool)
     stopwatch_start(&cody.stopwatch)
 }
