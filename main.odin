@@ -46,13 +46,18 @@ main :: proc() {
 
     codyrc_init(); defer codyrc_release()
     codyrc_load(dir)
+    fmt.printf("CONFIG: {}\n", config)
 
     cody:= cody_create(); defer cody_destroy(&cody)
 
-    if true do return
-
     cody_begin(&cody)
-    ite(dir, &cody)
+    if len(config.directories) == 0 {
+        ite(dir, &cody)
+    } else {
+        for d in config.directories {
+            ite(d, &cody)
+        }
+    }
     cody_end(&cody)
 
     total_lines, total_lines_code, total_lines_blank, total_lines_comment := 0,0,0,0

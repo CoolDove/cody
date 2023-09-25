@@ -1,6 +1,7 @@
 package collection
 
 
+import "core:fmt"
 import "core:runtime"
 import "core:strings"
 
@@ -24,9 +25,10 @@ strp_append :: proc(pool: ^StringPool, text: string) -> string {
     using strings
     start := builder_len(pool.buffer)
     write_string(&pool.buffer, text)
-    end := builder_len(pool.buffer)-1
+    end := builder_len(pool.buffer)
     str := to_string(pool.buffer)[start:end]
     append(&pool.strs, str)
+
     return str
 }
 

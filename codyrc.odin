@@ -8,6 +8,8 @@ import "core:fmt"
 import "core:path/filepath"
 import "core:text/match"
 import "core:strconv"
+
+import ansi "./ansi_code"
 import clc "./collection"
 
 CodyConfig :: struct {
@@ -22,7 +24,7 @@ CodyConfig :: struct {
     task_page_size : int,
 
     // ##Other
-    _str_pool : clc.StringPool,// Store all the string's copy used in the CodyConfig
+    _str_pool : clc.StringPool `fmt:"-"`,// Store all the string's copy used in the CodyConfig
 }
 
 config: CodyConfig
@@ -84,15 +86,20 @@ codyrc_load :: proc(dir: string) -> bool {
                 v, value_parse_ok := _codyrc_parse_value(value, &value_buffer)
                 defer _codyrc_config_value_destroy(&v)
                 if value_parse_ok {
-                    if codyrc_set_value(key, v) {
-                        fmt.printf("*{}: {}\n", key, v)
-                    } else {
+                    if !codyrc_set_value(key, v) {
+                        ansi.color(.Red)
                         fmt.printf("!Failed to set {} : {}\n", key, v)
+                        ansi.color(.Default)
                     }
                 } else {
+                    ansi.color(.Red)
                     fmt.printf("!Failed to parse {} : {}\n", key, value)
+                    ansi.color(.Default)
                 }
             } else {
+                ansi.color(.Red)
+                fmt.printf("!Failed to parse {}\n", line)
+                ansi.color(.Default)
                 return false
             }
         }
