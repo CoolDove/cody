@@ -3,6 +3,7 @@ package main
 import "core:os"
 import "core:io"
 import "core:fmt"
+import "core:log"
 import "core:thread"
 import "core:strings"
 import "core:math"
@@ -40,7 +41,8 @@ main :: proc() {
 
     codyrc_init(); defer codyrc_release()
     codyrc_load(dir)
-
+    // codyrc_debug()
+    
     cody:= cody_create(math.clamp(config.task_page_size, 1, 1024)); defer cody_destroy(&cody)
 
     cody_begin(&cody, math.clamp(config.thread_count, 1, 64))
@@ -77,7 +79,7 @@ main :: proc() {
 
 ite :: proc(path: string, ctx: ^CodyContext) {
     if os.is_dir(path) {
-        if len(path) > 4 && path[len(path)-4:] == ".git" do return
+        if is_dir_ignored(path) do return 
         if dh, err_open := os.open(path); err_open == os.ERROR_NONE {
             defer os.close(dh)
             if fis, err_read_dir := os.read_dir(dh, -1); err_read_dir == os.ERROR_NONE {
@@ -128,6 +130,18 @@ append_task :: proc(cody: ^CodyContext, handle: os.Handle) {
 is_ext_match :: proc(extension : string) -> bool {
     for ext_pstr in config.extensions {
         if extension == clc.pstr_to_string(ext_pstr) do return true
+    }
+    return false
+}
+
+is_dir_ignored :: proc(path: string) -> bool {
+    if len(path) > 4 && path[len(path)-4:] == ".git" do return true
+    if len(config.ignored_directories_fullpath) > 0 {
+        if di, err := os.stat(path); err == os.ERROR_NONE {
+            for ignore_dir in config.ignored_directories_fullpath {
+                if ignore_dir == di.fullpath do return true
+            }
+        }
     }
     return false
 }

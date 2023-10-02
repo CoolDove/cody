@@ -3,6 +3,7 @@ package main
 import "core:runtime"
 import "core:os"
 import "core:strings"
+import "core:log"
 import "core:slice"
 import "core:fmt"
 import "core:path/filepath"
@@ -17,6 +18,7 @@ CodyConfig :: struct {
     quiet: bool,
     output: clc.PString,
     directories: [dynamic]clc.PString,
+    ignore_directories: [dynamic]clc.PString,
     extensions: [dynamic]clc.PString,
 
     // ##Performance
@@ -25,6 +27,7 @@ CodyConfig :: struct {
 
     // ##Other
     _str_pool : clc.StringPool,// Store all the string's copy used in the CodyConfig
+    ignored_directories_fullpath : []string,
 }
 ConfigValue :: union {
     bool,
@@ -38,6 +41,7 @@ config: CodyConfig
 codyrc_init :: proc() {
     using config, clc
     directories = make([dynamic]clc.PString)
+    ignore_directories = make([dynamic]clc.PString)
     extensions = make([dynamic]clc.PString)
     _str_pool = strp_make()   
 
@@ -59,13 +63,15 @@ codyrc_init :: proc() {
 codyrc_release :: proc() {
     using config
     delete(directories)
+    delete(ignore_directories)
     delete(extensions)
+    if len(ignored_directories_fullpath) != 0 do delete(ignored_directories_fullpath)
     clc.strp_delete(&_str_pool)
 }
 
 codyrc_load :: proc(dir: string) -> bool {
     rcpath := filepath.join([]string{dir, ".codyrc"}); defer delete(rcpath)
-    fmt.printf("RCPath: {}\n", rcpath)
+    // fmt.printf("RCPath: {}\n", rcpath)
     if source, ok := os.read_entire_file(rcpath); ok {
         defer delete(source)
         using strings
@@ -115,6 +121,12 @@ codyrc_set_value :: proc(key: string, value: ConfigValue) -> bool {
         } else do return false
     } else if key == "directories" {
         return set_strings(&config.directories, value)
+    } else if key == "ignore_directories" {
+        if set_strings(&config.ignore_directories, value) {
+            codyrc_bake_ignored_dirs()
+            return true
+        }
+        return false
     } else if key == "extensions" {
         return set_strings(&config.extensions, value)
     } else if key == "thread_count" {
@@ -151,7 +163,42 @@ codyrc_set_value :: proc(key: string, value: ConfigValue) -> bool {
     }
 }
 
+@(private="file")
+codyrc_bake_ignored_dirs :: proc() {
+    if len(config.ignored_directories_fullpath) != 0 {
+        delete(config.ignored_directories_fullpath)
+        config.ignored_directories_fullpath = {}
+    }
+    
+    if len(config.ignore_directories) == 0 do return
+    dirs := make([dynamic]string, 0, len(config.ignore_directories)) ; defer delete(dirs)
+    for dir in config.ignore_directories {
+        fi, err := os.stat(clc.pstr_to_string(dir))
+        if err == os.ERROR_NONE {
+            append(&dirs, fi.fullpath)
+        }
+    }
+    config.ignored_directories_fullpath = slice.clone(dirs[:])
+}
 
+
+codyrc_debug :: proc() {
+    using strings, clc
+    // log.debugf("Codyrc: {}", )
+    log.debugf("Codyrc debug:")
+    fmt.printf("directories: \n")
+    for d in config.directories {
+        fmt.printf("> {}\n", pstr_to_string(d))
+    }
+    fmt.printf("extensions: \n")
+    for d in config.extensions {
+        fmt.printf("> {}\n", pstr_to_string(d))
+    }
+    fmt.printf("ignored directories: \n")
+    for d in config.ignored_directories_fullpath {
+        fmt.printf("> {}\n", d)
+    }
+}
 
 
 @(private="file")

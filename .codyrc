@@ -1,3 +1,5 @@
+directories : "./"
+ignore_directories: "ansi_code"
 extensions : ".odin"
 thread_count: 8
 task_page_size: 32

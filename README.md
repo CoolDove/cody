@@ -11,3 +11,9 @@ Count directory and apply the .codyrc if there is one in the directory.
 > cody
 
 Count current directory and ...
+
+
+TODO: 
+- [ ] Ignore certain files.
+- [ ] Ouput to file.
+- [ ] Codyrc comment, blank value.
