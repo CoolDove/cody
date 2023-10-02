@@ -9,6 +9,7 @@ help :: proc() {
 
     rc_example :string: 
 `directories: "C:/The/Directory", "./You/Want/To/Count"
+ignore_directories: "./if_you/want_to", "ignore_some_dir"
 extensions : ".code", ".ext",
 quiet: false
 `
