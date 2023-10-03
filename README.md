@@ -12,6 +12,16 @@ Count directory and apply the .codyrc if there is one in the directory.
 
 Count current directory and ...
 
+## Codyrc
+`directories`, string array.
+`ignore_directories`, string array.
+`extensions`, string array.
+`quiet`, boolean.
+
+## Example
+![example](./example/example_0.png)
+
+
 
 TODO: 
 - [ ] Ignore certain files.
