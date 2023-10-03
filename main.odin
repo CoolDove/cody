@@ -74,6 +74,7 @@ main :: proc() {
         }
         os.close(h)
     }
+    ansi.erase(.FromCursorToEnd)
     fmt.printf("Done\n")
     fmt.printf("Files count: {}\n", files_count)
     fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(cody.stopwatch)))
@@ -174,16 +175,15 @@ task_count_file :: proc(task: thread.Task) {
     lines :i64= 0
 
     if file_size, err := os.file_size(h); err == os.ERROR_NONE && file_size > 0 {
-        stream := os.stream_from_handle(h)
 
         if auto_cast file_size > len(buffer) {
             delete(buffer^)
             buffer^ = make([]u8, file_size)
         }
 
-        read_bytes_count, read_err := io.read_full(io.to_reader(stream), buffer[:file_size])
+        read_bytes_count, read_err := os.read_full(h, buffer[:file_size])
         
-        if read_err == .None {
+        if read_err == os.ERROR_NONE {
             info.result = 0
             scan_text(transmute(string)buffer[:file_size], info)
         } else {
