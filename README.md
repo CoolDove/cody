@@ -14,8 +14,11 @@ Count current directory and ...
 
 ## Codyrc
 `directories`, string array.
+
 `ignore_directories`, string array.
+
 `extensions`, string array.
+
 `quiet`, boolean.
 
 ## Example
