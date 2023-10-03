@@ -1,8 +1,10 @@
 package main
 
 import "core:os"
+import "core:intrinsics"
 import "core:io"
 import "core:fmt"
+import "core:mem"
 import "core:log"
 import "core:thread"
 import "core:strings"
@@ -55,6 +57,7 @@ main :: proc() {
     }
     cody_end(&cody)
 
+    files_count := clc.pga_len(&cody.tasks)
     total_lines, total_lines_code, total_lines_blank, total_lines_comment := 0,0,0,0
     for h, idx in cody.handles {
         task := clc.pga_get_ptr(&cody.tasks, idx)
@@ -72,6 +75,7 @@ main :: proc() {
         os.close(h)
     }
     fmt.printf("Done\n")
+    fmt.printf("Files count: {}\n", files_count)
     fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(cody.stopwatch)))
     fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m,\n", 
         total_lines, total_lines_code, total_lines_blank, total_lines_comment)
@@ -147,16 +151,43 @@ is_dir_ignored :: proc(path: string) -> bool {
 }
 
 task_count_file :: proc(task: thread.Task) {
+    log.debugf("task, user id: {}", task.user_index)
     context.allocator = task.allocator
     info := cast(^TaskInfo)task.data
     using info
     h := ctx.handles[idx]
 
+    buffer_idx :int
+    buffer :^[]u8
+
+    for &used, idx in ctx.file_buffers_using {
+        if !used {
+            used = true
+            buffer = &ctx.file_buffers[idx]
+            buffer_idx = idx
+            break
+        }
+    }
+    assert(buffer != nil, "File buffers ran out. This shouldn't happen.")
+    defer ctx.file_buffers_using[buffer_idx] = false
+
     lines :i64= 0
-    data, read_success := os.read_entire_file_from_handle(h)
-    if read_success {
-        info.result = 0
-        scan_text(transmute(string)data, info)
-        delete(data)
+
+    if file_size, err := os.file_size(h); err == os.ERROR_NONE && file_size > 0 {
+        stream := os.stream_from_handle(h)
+
+        if auto_cast file_size > len(buffer) {
+            delete(buffer^)
+            buffer^ = make([]u8, file_size)
+        }
+
+        read_bytes_count, read_err := io.read_full(io.to_reader(stream), buffer[:file_size])
+        
+        if read_err == .None {
+            info.result = 0
+            scan_text(transmute(string)buffer[:file_size], info)
+        } else {
+            log.errorf("Read file error: {}", read_err)
+        }
     }
 }

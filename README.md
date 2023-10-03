@@ -16,4 +16,6 @@ Count current directory and ...
 TODO: 
 - [ ] Ignore certain files.
 - [ ] Ouput to file.
+- [ ] Ouput format
 - [ ] Codyrc comment, blank value.
+- [ ] Block comment (/**/). More comment styles.
