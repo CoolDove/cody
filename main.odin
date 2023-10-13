@@ -27,33 +27,37 @@ TaskInfo :: struct {
 }
 
 main :: proc() {
-    dir :string= os.get_current_directory()
-    if len(os.args) == 1 {
-        dir = os.get_current_directory()
-    } else if len(os.args) == 2 {
-        if os.args[1] == "help" {
-            help()
-            return
-        }
-        dir = os.args[1]
-    } else {
-        fmt.printf("Invalid args.")
-        return
-    }
+    context.logger = log.create_console_logger(); defer log.destroy_console_logger(context.logger)
+
+    args_result, args_result_ok := read_args()
+
+    if !args_result_ok do return
 
     codyrc_init(); defer codyrc_release()
-    codyrc_load(dir)
-    // codyrc_debug()
-    
+
     cody:= cody_create(math.clamp(config.task_page_size, 1, 1024)); defer cody_destroy(&cody)
 
+    dir :string= os.get_current_directory()
+    if args_result.directory != "" {
+        dir = args_result.directory
+    }
+    codyrc_load(dir)
+
+    // To overwrite some configs like `quiet`, `color`, `progress`.
+    args_result_apply(&args_result, &config)
+
+
     cody_begin(&cody, math.clamp(config.thread_count, 1, 64))
-    if len(config.directories) == 0 {
-        ite(dir, &cody)
-    } else {
-        for d in config.directories {
-            ite(clc.pstr_to_string(d), &cody)
+    if len(args_result.files) == 0 {
+        if len(config.directories) == 0 {
+            ite(dir, &cody)
+        } else {
+            for d in config.directories {
+                ite(clc.pstr_to_string(d), &cody)
+            }
         }
+    } else {
+        for file in args_result.files do ite(file, &cody)
     }
     cody_end(&cody)
 
@@ -68,9 +72,16 @@ main :: proc() {
 
         if !config.quiet {
             fi, err_fi := os.fstat(h)
-            fmt.printf("[\033[45m {} \033[49m]: {} codes, {} blanks, {} comments, {} total.\n",
-                fi.fullpath,
-                task.code, task.blank, task.comment, task.result)
+            fullpath := strings.trim_prefix(fi.fullpath, "\\\\?\\")
+            if config.color {
+                fmt.printf("\033[43m{}\033[49m: {} codes, {} blanks, {} comments, {} total.\n",
+                    fullpath,
+                    task.code, task.blank, task.comment, task.result)
+            } else {
+                fmt.printf("{}: {} codes, {} blanks, {} comments, {} total.\n",
+                    fullpath,
+                    task.code, task.blank, task.comment, task.result)
+            }
         }
         os.close(h)
     }
@@ -78,8 +89,13 @@ main :: proc() {
     fmt.printf("Done\n")
     fmt.printf("Files count: {}\n", files_count)
     fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(cody.stopwatch)))
-    fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m,\n", 
-        total_lines, total_lines_code, total_lines_blank, total_lines_comment)
+    if config.color {
+        fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m,\n", 
+            total_lines, total_lines_code, total_lines_blank, total_lines_comment)
+    } else {
+        fmt.printf("Total: {}, code lines: {}, blank lines: {}, comment lines: {},\n", 
+            total_lines, total_lines_code, total_lines_blank, total_lines_comment)
+    }
 }
 
 ite :: proc(path: string, ctx: ^CodyContext) {
@@ -112,12 +128,14 @@ update :: proc(using cody: ^CodyContext) {
             if task.result != -1 do finished += 1
         }
         last_frame_time = ms
-        ansi.show_cursor(false)
-        ansi.store_cursor()
-        ansi.erase(.FromCursorToEnd)
-        fmt.printf("Progress: {}/{}", finished, pga_len(&cody.tasks))
-        ansi.restore_cursor()
-        ansi.show_cursor(true)
+        if config.progress {
+            ansi.show_cursor(false)
+            ansi.store_cursor()
+            ansi.erase(.FromCursorToEnd)
+            fmt.printf("Progress: {}/{}", finished, pga_len(&cody.tasks))
+            ansi.restore_cursor()
+            ansi.show_cursor(true)
+        }
     }
 }
 

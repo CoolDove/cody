@@ -15,11 +15,14 @@ import clc "./collection"
 
 CodyConfig :: struct {
     // ##Basic
-    quiet: bool,
     output: clc.PString,
     directories: [dynamic]clc.PString,
     ignore_directories: [dynamic]clc.PString,
     extensions: [dynamic]clc.PString,
+
+    // ##Output
+    progress : bool,
+    quiet, color: bool,
 
     // ##Performance
     thread_count: int,
@@ -71,7 +74,6 @@ codyrc_release :: proc() {
 
 codyrc_load :: proc(dir: string) -> bool {
     rcpath := filepath.join([]string{dir, ".codyrc"}); defer delete(rcpath)
-    // fmt.printf("RCPath: {}\n", rcpath)
     if source, ok := os.read_entire_file(rcpath); ok {
         defer delete(source)
         using strings
@@ -112,6 +114,16 @@ codyrc_set_value :: proc(key: string, value: ConfigValue) -> bool {
     if key == "quiet" {
         if quiet, ok := value.(bool); ok {
             config.quiet = quiet
+            return true
+        } else do return false
+    } else if key == "color" {
+        if color, ok := value.(bool); ok {
+            config.color = color
+            return true
+        } else do return false
+    } else if key == "progress" {
+        if progress, ok := value.(bool); ok {
+            config.progress = progress
             return true
         } else do return false
     } else if key == "output" {
