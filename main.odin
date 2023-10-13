@@ -1,6 +1,7 @@
 package main
 
 import "core:os"
+import "core:c/libc"
 import "core:intrinsics"
 import "core:io"
 import "core:fmt"
@@ -41,6 +42,9 @@ main :: proc() {
     if args_result.directory != "" {
         dir = args_result.directory
     }
+
+    os.set_current_directory(dir)
+    
     codyrc_load(dir)
 
     // To overwrite some configs like `quiet`, `color`, `progress`.
@@ -170,7 +174,6 @@ is_dir_ignored :: proc(path: string) -> bool {
 }
 
 task_count_file :: proc(task: thread.Task) {
-    log.debugf("task, user id: {}", task.user_index)
     context.allocator = task.allocator
     info := cast(^TaskInfo)task.data
     using info

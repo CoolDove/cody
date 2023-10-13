@@ -14,10 +14,6 @@ read_args :: proc(allocator:= context.allocator) -> (ArgsResult, bool) {
             color = true
         } else if arg == "-p" || arg == "--progress" {
             progress = true
-        } else if arg == "-sli" || arg == "--sort-lines-inc" {// TODO
-            sort_lines_inc = true
-        } else if arg == "-sld" || arg == "--sort-lines-dec" {// TODO
-            sort_lines_dec = true
         } else {
             if os.is_dir(arg) {
                 if directory != "" {
@@ -59,5 +55,4 @@ ArgsResult :: struct {
     directory : string,
     files : [dynamic]string,
     quiet, color, progress : bool,
-    sort_lines_inc, sort_lines_dec : bool,
 }
