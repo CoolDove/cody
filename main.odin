@@ -30,6 +30,11 @@ TaskInfo :: struct {
 main :: proc() {
     context.logger = log.create_console_logger(); defer log.destroy_console_logger(context.logger)
 
+    if len(os.args) == 2 && (os.args[1] == "help" || os.args[1] == "--h") {
+        help()
+        return
+    }
+    
     args_result, args_result_ok := read_args()
 
     if !args_result_ok do return
