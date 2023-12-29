@@ -27,13 +27,27 @@ TaskInfo :: struct {
     blank : i64,
 }
 
+print_arg :: proc(arg: string, data: rawptr) {
+    fmt.printf("arg: {}\n", arg)
+}
+
 main :: proc() {
     context.logger = log.create_console_logger(); defer log.destroy_console_logger(context.logger)
+
+    args_read(
+        {argr_is("--quiet"), arga_action(print_arg)},
+        {argr_is("--help"), arga_action(print_arg)},
+        {argr_follow_by("-e"), arga_action(print_arg)},
+        {argr_follow_by("-out"), arga_action(print_arg)},
+        {argr_prefix("-d"), arga_action(print_arg)},
+    )
+    if true do return
 
     if len(os.args) == 2 && (os.args[1] == "help" || os.args[1] == "--h") {
         help()
         return
     }
+
     
     args_result, args_result_ok := read_args()
 
