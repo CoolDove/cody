@@ -37,15 +37,45 @@ main :: proc() {
 
     codyrc_init(); defer codyrc_release()
 
-    args_read(
-        {argr_is("--quiet"), arga_set(&config.quiet)},
-        {argr_is("-q"), arga_set(&config.quiet)},
-        {argr_is("--color"), arga_set(&config.color)},
-        {argr_is("-c"), arga_set(&config.color)},
-        {argr_prefix("-threads:"), arga_set(&config.thread_count)},
-        // {argr_prefix("-out:"), arga_set(&config.output)},
-        {argr_prefix("-dir"), arga_action(print_arg)},
-    )
+    {
+        action_add_extension :: proc(arg: string, data: rawptr) -> bool {
+            codyrc_add_extension(arg)
+            return true
+        }
+        action_add_directory :: proc(arg: string, data: rawptr) -> bool {
+            codyrc_add_directory(arg)
+            return true
+        }
+        action_add_directory_excluded :: proc(arg: string, data: rawptr) -> bool {
+            codyrc_add_directory_excluded(arg)
+            return true
+        }
+        action_invalid_arg :: proc(arg: string, data: rawptr) -> bool {
+            fmt.printf("Invalid arg: -{}.\n", arg)
+            return false
+        }
+        args_ok := args_read(
+            {argr_is("--quiet"), arga_set(&config.quiet)},
+            {argr_is("-q"), arga_set(&config.quiet)},
+            {argr_is("--color"), arga_set(&config.color)},
+            {argr_is("-c"), arga_set(&config.color)},
+            {argr_is("--progress"), arga_set(&config.progress)},
+            {argr_is("-p"), arga_set(&config.progress)},
+            
+            {argr_follow_by("-ext", ARGR_FOLLOW_FALLBACK), arga_action(action_add_extension)},
+            {argr_follow_by("-dir", ARGR_FOLLOW_FALLBACK), arga_action(action_add_directory)},
+            {argr_follow_by("-direxclude", ARGR_FOLLOW_FALLBACK), arga_action(action_add_directory_excluded)},
+
+            {argr_prefix("-threads:"), arga_set(&config.thread_count)},
+            {argr_prefix("-task-page-size:"), arga_set(&config.task_page_size)},
+            {argr_prefix("-comment-style:"), arga_action(action_invalid_arg)},
+
+            {argr_prefix("-"), arga_action(action_invalid_arg)},
+        )
+        if !args_ok do return
+
+    }
+
     // if true do return
 
     if len(os.args) == 2 && (os.args[1] == "help" || os.args[1] == "--h") {
@@ -70,7 +100,7 @@ main :: proc() {
 
     // To overwrite some configs like `quiet`, `color`, `progress`.
     // args_result_apply(&args_result, &config)
-    fmt.printf("config :\n{}\n", config)
+    // fmt.printf("config :\n{}\n", config)
     // fmt.printf("config color:\n{}\n", config.color)
     // fmt.printf("config progress:\n{}\n", config.progress)
 

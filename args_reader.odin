@@ -6,6 +6,12 @@ import "core:strconv"
 import "core:fmt"
 import "core:reflect"
 
+
+
+ArgsReaderContext :: struct {
+    fallback_action : ArgsReaderAction,
+}
+
 ArgsReaderConfig :: struct {
     rule : ArgsReaderRule,
     action : ArgsReaderAction,
@@ -40,16 +46,36 @@ ArgsRuleFollowBy :: struct {
 }
 ArgsRulePrefix :: distinct ArgsRuleIs
 
-args_read :: proc(configs : ..ArgsReaderConfig) {
+args_read :: proc(configs : ..ArgsReaderConfig) -> bool {
     count := cast(i32)len(os.args)
+    rctx : ArgsReaderContext
     idx :i32= 1
     ite_args: for idx < count {
         arg := os.args[idx]
         for &config in configs {
-            if _apply(&config, &idx) do continue ite_args
+            if ok, after := _apply(&config, &idx, &rctx); ok {
+                if after == nil {
+                    rctx.fallback_action = nil
+                } else {
+                    switch aft in after {
+                    case AfterApplyRule_SetFallbackAction:
+                        rctx.fallback_action = aft.action
+                    case AfterApplyRule_Terminate:
+                        return false
+                    }
+                }
+                continue ite_args
+            }
         }
-        return
+        if rctx.fallback_action != nil {
+            if _action(&rctx.fallback_action, arg) {
+                idx += 1
+            } else {
+                return false
+            }
+        } else do return false
     }
+    return true
 }
 
 argr_is :: proc(text: string) -> ArgsRuleIs {
@@ -58,7 +84,7 @@ argr_is :: proc(text: string) -> ArgsRuleIs {
 
 ARGR_FOLLOW_TILL_END : int = -1
 ARGR_FOLLOW_FALLBACK : int = -9
-argr_follow_by :: proc(text: string, count: int=0) -> ArgsRuleFollowBy {
+argr_follow_by :: proc(text: string, count: int=1) -> ArgsRuleFollowBy {
     return {text, count}
 }
 argr_prefix :: proc(text: string) -> ArgsRulePrefix {
@@ -73,43 +99,61 @@ arga_set :: proc(data: ^$T) -> ArgsReaderAction {
 }
 
 @(private="file")
-_apply :: proc(using config: ^ArgsReaderConfig, arg_idx: ^i32) -> bool {
+_apply :: proc(using config: ^ArgsReaderConfig, arg_idx: ^i32, rctx: ^ArgsReaderContext) -> ( bool, AfterApplyRule ) {
     arg := os.args[arg_idx^]
     switch r in rule {
     case ArgsRuleIs:
         if r.text == arg {
             arg_idx^ += 1
-            _action(config, "true")
-            return true
+            succ := _action(&action, "true")
+            return true, nil if succ else AfterApplyRule_Terminate{}
         }
     case ArgsRuleFollowBy:
         if r.text == arg {
             arg_idx^ += 1
-            if arg_idx^ >= auto_cast len(os.args) { return false }
-            _action(config, os.args[arg_idx^])
-            arg_idx^ += 1
-            return true
+            count := 1
+            if r.count == ARGR_FOLLOW_TILL_END {
+                count = len(os.args) - cast(int)(arg_idx^)
+            } else if r.count == ARGR_FOLLOW_FALLBACK {
+                return true, AfterApplyRule_SetFallbackAction{action}
+            } 
+            for c in 0..<count {
+                if arg_idx^ >= auto_cast len(os.args) { return false, nil }
+                succ := _action(&action, os.args[arg_idx^])
+                arg_idx^ += 1
+                if !succ do return true, AfterApplyRule_SetFallbackAction{action}
+            }
+            return true, nil
         }
     case ArgsRulePrefix:
         if strings.has_prefix(arg, r.text) {
             arg_idx^ += 1
-            _action(config, arg[len(r.text):])
-            return true
+            succ := _action(&action, arg[len(r.text):])
+            return true, nil if succ else AfterApplyRule_Terminate{}
         }
     }
-    return false
+    return false, nil
 }
 
 @(private="file")
-_action :: proc(using config: ^ArgsReaderConfig, arg: string) -> bool {
+AfterApplyRule :: union {
+    AfterApplyRule_SetFallbackAction,
+    AfterApplyRule_Terminate,
+}
+AfterApplyRule_SetFallbackAction :: struct {
+    action : ArgsReaderAction,
+}
+AfterApplyRule_Terminate :: struct {
+}
+
+@(private="file")
+_action :: proc(action: ^ArgsReaderAction, arg: string) -> bool {
     if action == nil do return false
     switch a in action {
     case ArgsReaderActionHandler:
-        a.func(arg, a.data)
-        return true
+        return a.func(arg, a.data)
     case ArgsReaderActionSetValue:
-        fmt.printf("set value: {} by {} \n", a, arg)
-        _action_set_value(a, arg)
+        return _action_set_value(a, arg)
     }
     return false
 }

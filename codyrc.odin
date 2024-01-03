@@ -31,6 +31,10 @@ CodyConfig :: struct {
     // ##Other
     _str_pool : clc.StringPool,// Store all the string's copy used in the CodyConfig
     ignored_directories_fullpath : []string,
+
+    // 
+    using_default_extensions : bool,
+    
 }
 ConfigValue :: union {
     bool,
@@ -40,6 +44,21 @@ ConfigValue :: union {
 }
 
 config: CodyConfig
+
+codyrc_add_extension :: proc(extension: string) {
+    if config.using_default_extensions {
+        clear(&config.extensions)
+        config.using_default_extensions = false
+    }
+    append(&config.extensions, clc.strp_append(&config._str_pool, extension))
+}
+codyrc_add_directory :: proc(directory: string) {
+    append(&config.directories, clc.strp_append(&config._str_pool, directory))
+}
+codyrc_add_directory_excluded :: proc(directory: string) {
+    append(&config.ignore_directories, clc.strp_append(&config._str_pool, directory))
+    fmt.printf("Directory ex: {}\n", directory)
+}
 
 codyrc_init :: proc() {
     using config, clc
@@ -56,6 +75,7 @@ codyrc_init :: proc() {
         
         ".odin", ".jai", ".zig",
     }
+    using_default_extensions = true
 
     for ext in default_extensions do append(&extensions, strp_append(&_str_pool, ext))
     
@@ -106,6 +126,7 @@ codyrc_load :: proc(dir: string) -> bool {
     } else {
         return false
     }
+    codyrc_bake_ignored_dirs()
     return true
 }
 
@@ -134,11 +155,7 @@ codyrc_set_value :: proc(key: string, value: ConfigValue) -> bool {
     } else if key == "directories" {
         return set_strings(&config.directories, value)
     } else if key == "ignore_directories" {
-        if set_strings(&config.ignore_directories, value) {
-            codyrc_bake_ignored_dirs()
-            return true
-        }
-        return false
+        return set_strings(&config.ignore_directories, value)
     } else if key == "extensions" {
         return set_strings(&config.extensions, value)
     } else if key == "thread_count" {
