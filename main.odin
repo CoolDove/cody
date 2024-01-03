@@ -37,7 +37,7 @@ main :: proc() {
 
     codyrc_init(); defer codyrc_release()
 
-    {
+    {// read arguments
         action_add_extension :: proc(arg: string, data: rawptr) -> bool {
             codyrc_add_extension(arg)
             return true
@@ -76,36 +76,20 @@ main :: proc() {
 
     }
 
-    // if true do return
-
     if len(os.args) == 2 && (os.args[1] == "help" || os.args[1] == "--h") {
         help()
         return
     }
 
-    
-    // args_result, args_result_ok := read_args()
-    // if !args_result_ok do return
 
     cody:= cody_create(math.clamp(config.task_page_size, 1, 1024)); defer cody_destroy(&cody)
 
     dir :string= os.get_current_directory()
-    // if args_result.directory != "" {
-    //     dir = args_result.directory
-    // }
+    // os.set_current_directory(dir)
 
-    os.set_current_directory(dir)
-    
     codyrc_load(dir)
 
-    // To overwrite some configs like `quiet`, `color`, `progress`.
-    // args_result_apply(&args_result, &config)
-    // fmt.printf("config :\n{}\n", config)
-    // fmt.printf("config color:\n{}\n", config.color)
-    // fmt.printf("config progress:\n{}\n", config.progress)
-
     cody_begin(&cody, math.clamp(config.thread_count, 1, 64))
-    // if len(args_result.files) == 0 {
         if len(config.directories) == 0 {
             ite(dir, &cody)
         } else {
@@ -113,9 +97,6 @@ main :: proc() {
                 ite(clc.pstr_to_string(d), &cody)
             }
         }
-    // } else {
-    //     for file in args_result.files do ite(file, &cody)
-    // }
     cody_end(&cody)
 
     files_count := clc.pga_len(&cody.tasks)
