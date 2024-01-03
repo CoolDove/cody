@@ -2,6 +2,7 @@ package main
 
 import "core:os"
 import "core:strings"
+import "core:strconv"
 import "core:fmt"
 
 ArgsReaderConfig :: struct {
@@ -17,11 +18,16 @@ ArgsReaderRule :: union {
 
 ArgsReaderAction :: union {
     ArgsReaderActionHandler,
+    ArgsReaderActionSetValue,
 }
 ArgsReaderActionHandlerFunc :: #type proc(arg:string, user_data: rawptr)
 ArgsReaderActionHandler :: struct {
     func : ArgsReaderActionHandlerFunc,
     data : rawptr,
+}
+ArgsReaderActionSetValue :: struct {
+    data : rawptr,
+    type : typeid,
 }
 
 ArgsRuleIs :: struct {
@@ -55,6 +61,9 @@ argr_prefix :: proc(text: string) -> ArgsRulePrefix {
 arga_action :: proc(func: ArgsReaderActionHandlerFunc, data: rawptr=nil) -> ArgsReaderAction {
     return ArgsReaderActionHandler{func,data}
 }
+arga_set_bool :: proc(data: ^bool) -> ArgsReaderAction {
+    return ArgsReaderActionSetValue{data,bool}
+}
 
 @(private="file")
 _apply :: proc(using config: ^ArgsReaderConfig, arg_idx: ^i32) -> bool {
@@ -63,7 +72,7 @@ _apply :: proc(using config: ^ArgsReaderConfig, arg_idx: ^i32) -> bool {
     case ArgsRuleIs:
         if r.text == arg {
             arg_idx^ += 1
-            _action(config, arg)
+            _action(config, "true")
             return true
         }
     case ArgsRuleFollowBy:
@@ -90,6 +99,27 @@ _action :: proc(using config: ^ArgsReaderConfig, arg: string) -> bool {
     switch a in action {
     case ArgsReaderActionHandler:
         a.func(arg, a.data)
+        return true
+    case ArgsReaderActionSetValue:
+        if a.type == bool {
+            if value,ok := strconv.parse_bool(arg); ok {
+                ptr := cast(^bool)a.data
+                ptr^ = value
+                return true
+            } else {
+                return false
+            }
+        } else if a.type == i64 {
+            if value,ok := strconv.parse_i64(arg); ok {
+                ptr := cast(^i64)a.data
+                ptr^ = value
+                return true
+            } else {
+                return false
+            }
+        } else {
+            return false
+        }
     }
     return false
 }

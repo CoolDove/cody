@@ -1,6 +1,4 @@
 directories : "./"
 ignore_directories: "ansi_code"
 extensions : ".odin"
-quiet: true
-color: false
 progress: true

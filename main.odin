@@ -35,13 +35,15 @@ main :: proc() {
     context.logger = log.create_console_logger(); defer log.destroy_console_logger(context.logger)
 
     args_read(
-        {argr_is("--quiet"), arga_action(print_arg)},
-        {argr_is("--help"), arga_action(print_arg)},
+        {argr_is("--quiet"), arga_set_bool(&config.quiet)},
+        {argr_is("-q"), arga_set_bool(&config.quiet)},
+        {argr_is("--color"), arga_set_bool(&config.color)},
+        {argr_is("-c"), arga_set_bool(&config.color)},
         {argr_follow_by("-e"), arga_action(print_arg)},
         {argr_follow_by("-out"), arga_action(print_arg)},
         {argr_prefix("-d"), arga_action(print_arg)},
     )
-    if true do return
+    // if true do return
 
     if len(os.args) == 2 && (os.args[1] == "help" || os.args[1] == "--h") {
         help()
@@ -49,29 +51,30 @@ main :: proc() {
     }
 
     
-    args_result, args_result_ok := read_args()
-
-    if !args_result_ok do return
+    // args_result, args_result_ok := read_args()
+    // if !args_result_ok do return
 
     codyrc_init(); defer codyrc_release()
 
     cody:= cody_create(math.clamp(config.task_page_size, 1, 1024)); defer cody_destroy(&cody)
 
     dir :string= os.get_current_directory()
-    if args_result.directory != "" {
-        dir = args_result.directory
-    }
+    // if args_result.directory != "" {
+    //     dir = args_result.directory
+    // }
 
     os.set_current_directory(dir)
     
     codyrc_load(dir)
 
     // To overwrite some configs like `quiet`, `color`, `progress`.
-    args_result_apply(&args_result, &config)
-
+    // args_result_apply(&args_result, &config)
+    // fmt.printf("config quiet:\n{}\n", config.quiet)
+    // fmt.printf("config color:\n{}\n", config.color)
+    // fmt.printf("config progress:\n{}\n", config.progress)
 
     cody_begin(&cody, math.clamp(config.thread_count, 1, 64))
-    if len(args_result.files) == 0 {
+    // if len(args_result.files) == 0 {
         if len(config.directories) == 0 {
             ite(dir, &cody)
         } else {
@@ -79,9 +82,9 @@ main :: proc() {
                 ite(clc.pstr_to_string(d), &cody)
             }
         }
-    } else {
-        for file in args_result.files do ite(file, &cody)
-    }
+    // } else {
+    //     for file in args_result.files do ite(file, &cody)
+    // }
     cody_end(&cody)
 
     files_count := clc.pga_len(&cody.tasks)
