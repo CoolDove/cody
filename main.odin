@@ -54,7 +54,27 @@ main :: proc() {
             fmt.printf("Invalid arg: -{}.\n", arg)
             return false
         }
+        action_help :: proc(arg: string, data: rawptr) -> bool {
+            help()
+            return false
+        }
+        action_version :: proc(arg: string, data: rawptr) -> bool {
+            help_version()
+            return false
+        }
+        action_rc :: proc(arg: string, data: rawptr) -> bool {
+            help_rc()
+            return false
+        }
         args_ok := args_read(
+            {argr_is("help"), arga_action(action_help)},
+            {argr_is("-h"), arga_action(action_help)},
+            {argr_is("--help"), arga_action(action_help)},
+            {argr_is("version"), arga_action(action_version)},
+            {argr_is("-v"), arga_action(action_version)},
+            {argr_is("--version"), arga_action(action_version)},
+            {argr_is("rc"), arga_action(action_rc)},
+
             {argr_is("--quiet"), arga_set(&config.quiet)},
             {argr_is("-q"), arga_set(&config.quiet)},
             {argr_is("--color"), arga_set(&config.color)},
@@ -123,8 +143,9 @@ main :: proc() {
         }
         os.close(h)
     }
+    if !config.quiet do fmt.print("\n")
+
     ansi.erase(.FromCursorToEnd)
-    fmt.printf("Done\n")
     fmt.printf("Files count: {}\n", files_count)
     fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(cody.stopwatch)))
     if config.color {
