@@ -1,18 +1,21 @@
-## A simple code counter
+## A simple lines counter
 
-> cody help
+### Introduction
+Cody is a lines counter written in [Odin Language](https://odin-lang.org). 
+It helps you recursively count lines in the workspace.
 
-Generate a .codyrc example in current directory.
+`cody help` will show you how to use.
 
-> cody ./
+### Todo
+- Block comment parsing. 
+- Sorted output.
+- More comment style. 
+- Speed up.
 
-Count directory and apply the .codyrc if there is one in the directory.
+### .codyrc
+You can config some workspace options in a .codyrc file to avoid
+typing lots of things every time. Use `cody rc` to generate an example.
 
-> cody
-
-Count current directory and ...
-
-## Codyrc
 `directories`, string array.
 
 `ignore_directories`, string array.
@@ -21,14 +24,8 @@ Count current directory and ...
 
 `quiet`, boolean.
 
-## Example
-![example](./example/example_0.png)
+### Example
 
+![example](./images/example-0.png)
 
-
-TODO: 
-- [ ] Ignore certain files.
-- [ ] Ouput to file.
-- [ ] Ouput format
-- [ ] Codyrc comment, blank value.
-- [ ] Block comment (/**/). More comment styles.
+![example-help](./images/example-help.png)
