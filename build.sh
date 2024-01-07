@@ -4,6 +4,8 @@ if [ $# == 0 ]; then
     else
         echo -e "\033[31mFailed to build release version."
     fi
+elif [ $1 == "clean" ]; then 
+    rm cody.exe cody.pdb
 elif [ $1 == "d" ]; then 
     if odin build . -debug; then
         echo "Build debug version."

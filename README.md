@@ -11,6 +11,8 @@ It helps you recursively count lines in the workspace.
 - Sorted output.
 - More comment style. 
 - Speed up.
+  - Comment parsing.
+  - Files filtering.
 
 ### .codyrc
 You can config some workspace options in a .codyrc file to avoid
