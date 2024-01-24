@@ -81,10 +81,16 @@ main :: proc() {
             {argr_is("-c"), arga_set(&config.color)},
             {argr_is("--progress"), arga_set(&config.progress)},
             {argr_is("-p"), arga_set(&config.progress)},
+
+            {argr_is("--no-sum"), arga_set(&config.no_sum)},
+            {argr_is("-ns"), arga_set(&config.no_sum)},
+
+            {argr_follow_by("-format"), arga_set(&config.format)},
             
             {argr_follow_by("-ext", ARGR_FOLLOW_FALLBACK), arga_action(action_add_extension)},
             {argr_follow_by("-dir", ARGR_FOLLOW_FALLBACK), arga_action(action_add_directory)},
             {argr_follow_by("-direxclude", ARGR_FOLLOW_FALLBACK), arga_action(action_add_directory_excluded)},
+
 
             {argr_prefix("-threads:"), arga_set(&config.thread_count)},
             {argr_prefix("-task-page-size:"), arga_set(&config.task_page_size)},
@@ -121,6 +127,7 @@ main :: proc() {
 
     files_count := clc.pga_len(&cody.tasks)
     total_lines, total_lines_code, total_lines_blank, total_lines_comment := 0,0,0,0
+	sb : strings.Builder ; strings.builder_init(&sb) ; defer strings.builder_destroy(&sb)
     for h, idx in cody.handles {
         task := clc.pga_get_ptr(&cody.tasks, idx)
         total_lines += auto_cast task.result
@@ -129,32 +136,29 @@ main :: proc() {
         total_lines_comment += auto_cast task.comment
 
         if !config.quiet {
+			strings.builder_reset(&sb)
             fi, err_fi := os.fstat(h)
-            fullpath := strings.trim_prefix(fi.fullpath, "\\\\?\\")
-            if config.color {
-                fmt.printf("\033[43m{}\033[49m: {} codes, {} blanks, {} comments, {} total.\n",
-                    fullpath,
-                    task.code, task.blank, task.comment, task.result)
-            } else {
-                fmt.printf("{}: {} codes, {} blanks, {} comments, {} total.\n",
-                    fullpath,
-                    task.code, task.blank, task.comment, task.result)
-            }
+
+			format_string := "%(file-short):\t%(total) total, %(code) codes." if config.format == "" else config.format;
+			output_string := output_formatted(format_string, h, task, &sb)
+			fmt.println(output_string)
         }
         os.close(h)
     }
     if !config.quiet do fmt.print("\n")
 
-    ansi.erase(.FromCursorToEnd)
-    fmt.printf("Files count: {}\n", files_count)
-    fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(cody.stopwatch)))
-    if config.color {
-        fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m,\n", 
-            total_lines, total_lines_code, total_lines_blank, total_lines_comment)
-    } else {
-        fmt.printf("Total: {}, code lines: {}, blank lines: {}, comment lines: {},\n", 
-            total_lines, total_lines_code, total_lines_blank, total_lines_comment)
-    }
+	if !config.no_sum {
+		fmt.printf("Files count: {}\n", files_count)
+		fmt.printf("Total time: {} s\n", time.duration_seconds(time.stopwatch_duration(cody.stopwatch)))
+		if config.color {
+			fmt.printf("Total: {}, code lines: \033[4m{}\033[0m, blank lines: \033[4m{}\033[0m, comment lines: \033[4m{}\033[0m.", 
+				total_lines, total_lines_code, total_lines_blank, total_lines_comment)
+		} else {
+			fmt.printf("Total: {}, code lines: {}, blank lines: {}, comment lines: {}.", 
+				total_lines, total_lines_code, total_lines_blank, total_lines_comment)
+		}
+	}
+
 }
 
 ite :: proc(path: string, ctx: ^CodyContext) {

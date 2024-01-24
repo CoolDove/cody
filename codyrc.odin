@@ -23,6 +23,8 @@ CodyConfig :: struct {
     // ##Output
     progress : bool,
     quiet, color: bool,
+	no_sum : bool,
+	format : string,
 
     // ##Performance
     thread_count: int,
