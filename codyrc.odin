@@ -59,7 +59,6 @@ codyrc_add_directory :: proc(directory: string) {
 }
 codyrc_add_directory_excluded :: proc(directory: string) {
     append(&config.ignore_directories, clc.strp_append(&config._str_pool, directory))
-    fmt.printf("Directory ex: {}\n", directory)
 }
 
 codyrc_init :: proc() {
@@ -128,7 +127,7 @@ codyrc_load :: proc(dir: string) -> bool {
     } else {
         return false
     }
-    codyrc_bake_ignored_dirs()
+    // codyrc_bake_ignored_dirs()
     return true
 }
 
@@ -194,7 +193,7 @@ codyrc_set_value :: proc(key: string, value: ConfigValue) -> bool {
     }
 }
 
-@(private="file")
+
 codyrc_bake_ignored_dirs :: proc() {
     if len(config.ignored_directories_fullpath) != 0 {
         delete(config.ignored_directories_fullpath)

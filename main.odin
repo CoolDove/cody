@@ -115,6 +115,8 @@ main :: proc() {
 
     codyrc_load(dir)
 
+	codyrc_bake_ignored_dirs()
+
     cody_begin(&cody, math.clamp(config.thread_count, 1, 64))
         if len(config.directories) == 0 {
             ite(dir, &cody)
