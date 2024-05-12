@@ -5,6 +5,7 @@ import "core:c/libc"
 import "core:intrinsics"
 import "core:io"
 import "core:fmt"
+import "core:slice"
 import "core:mem"
 import "core:log"
 import "core:thread"
@@ -25,6 +26,11 @@ TaskInfo :: struct {
     comment : i64,
     code : i64,
     blank : i64,
+}
+
+OutputResult :: struct {
+	handle : os.Handle,
+	total, code, blank, comment : int,
 }
 
 print_arg :: proc(arg: string, data: rawptr) -> bool {
@@ -82,11 +88,15 @@ main :: proc() {
             {argr_is("--progress"), arga_set(&config.progress)},
             {argr_is("-p"), arga_set(&config.progress)},
 
+			{argr_is("--reverse-sort"), arga_set(&config.reverse_sort)},
+			{argr_is("-rs"), arga_set(&config.reverse_sort)},
+
             {argr_is("--no-sum"), arga_set(&config.no_sum)},
             {argr_is("-ns"), arga_set(&config.no_sum)},
 
             {argr_follow_by("-format"), arga_set(&config.format)},
-            
+			{argr_prefix("-sort:"), arga_set(&config.sort)},
+
             {argr_follow_by("-ext", ARGR_FOLLOW_FALLBACK), arga_action(action_add_extension)},
             {argr_follow_by("-dir", ARGR_FOLLOW_FALLBACK), arga_action(action_add_directory)},
             {argr_follow_by("-direxclude", ARGR_FOLLOW_FALLBACK), arga_action(action_add_directory_excluded)},
@@ -130,24 +140,66 @@ main :: proc() {
     files_count := clc.pga_len(&cody.tasks)
     total_lines, total_lines_code, total_lines_blank, total_lines_comment := 0,0,0,0
 	sb : strings.Builder ; strings.builder_init(&sb) ; defer strings.builder_destroy(&sb)
+	//** summarize and output
+	output_results_buffer := make_slice([]OutputResult, len(cody.handles)); defer delete(output_results_buffer)
     for h, idx in cody.handles {
         task := clc.pga_get_ptr(&cody.tasks, idx)
-        total_lines += auto_cast task.result
-        total_lines_code += auto_cast task.code
-        total_lines_blank += auto_cast task.blank
-        total_lines_comment += auto_cast task.comment
+		r := OutputResult{h, cast(int)task.result, cast(int)task.code, cast(int)task.blank, cast(int)task.comment}
+		output_results_buffer[idx] = r
 
-        if !config.quiet {
-			strings.builder_reset(&sb)
-            fi, err_fi := os.fstat(h)
+		total_lines			+= r.total
+		total_lines_code	+= r.code
+		total_lines_blank	+= r.blank
+		total_lines_comment += r.comment
 
-			format_string := "%(file-short):\t%(total) total, %(code) codes." if config.format == "" else config.format;
-			output_string := output_formatted(format_string, h, task, &sb)
-			fmt.println(output_string)
-        }
-        os.close(h)
+        // if !config.quiet {
+		// 	strings.builder_reset(&sb)
+        //     fi, err_fi := os.fstat(h)
+// 
+		// 	format_string := "%(file-short):\t%(total) total, %(code) codes." if config.format == "" else config.format;
+		// 	output_string := output_formatted(format_string, h, task, &sb)
+		// 	fmt.println(output_string)
+        // }
     }
-    if !config.quiet do fmt.print("\n")
+    if !config.quiet {
+		switch config.sort {
+		case .default:
+		case .total_line:
+			_cmp_total_line :: proc(a,b: OutputResult) -> bool {
+				return a.total < b.total if config.reverse_sort else a.total > b.total
+			}
+			slice.stable_sort_by(output_results_buffer, _cmp_total_line)
+		case .code_line:
+			_cmp_code_line :: proc(a,b: OutputResult) -> bool {
+				return a.code < b.code if config.reverse_sort else a.code > b.code
+			}
+			slice.stable_sort_by(output_results_buffer, _cmp_code_line)
+		case .comment_line:
+			_cmp_comment_line :: proc(a,b: OutputResult) -> bool {
+				return a.comment < b.comment if config.reverse_sort else a.comment > b.comment
+			}
+			slice.stable_sort_by(output_results_buffer, _cmp_comment_line)
+		case .blank_line:
+			_cmp_blank_line :: proc(a,b: OutputResult) -> bool {
+				return a.blank < b.blank if config.reverse_sort else a.blank > b.blank
+			}
+			slice.stable_sort_by(output_results_buffer, _cmp_blank_line)
+		}
+
+		for &r in output_results_buffer {
+			if !config.quiet {
+				strings.builder_reset(&sb)
+				fi, err_fi := os.fstat(r.handle)
+
+				format_string := "%(file-short):\t\t%(total) total, %(code) codes." if config.format == "" else config.format;
+				output_string := output_formatted(format_string, r.handle, &r, &sb)
+				fmt.println(output_string)
+			}
+		}
+		fmt.print("\n")
+	}
+
+	for h in cody.handles do os.close(h)
 
 	if !config.no_sum {
 		fmt.printf("Files count: {}\n", files_count)

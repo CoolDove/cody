@@ -25,6 +25,8 @@ CodyConfig :: struct {
     quiet, color: bool,
 	no_sum : bool,
 	format : string,
+	reverse_sort : bool,
+	sort : SortRule,
 
     // ##Performance
     thread_count: int,
@@ -36,8 +38,17 @@ CodyConfig :: struct {
 
     // 
     using_default_extensions : bool,
-    
 }
+
+SortRule :: enum {
+	default,
+	total_line,
+	code_line,
+	blank_line,
+	comment_line,
+}
+
+
 ConfigValue :: union {
     bool,
     f64,

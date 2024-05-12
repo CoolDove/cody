@@ -16,7 +16,7 @@ Available variables:
 %(comment)
 */
 
-output_formatted :: proc(format_string : string, h: os.Handle, task: ^TaskInfo, sb: ^strings.Builder) -> string {
+output_formatted :: proc(format_string : string, h: os.Handle, result: ^OutputResult, sb: ^strings.Builder) -> string {
 	using strings
 
     fi, err_fi := os.fstat(h)
@@ -40,16 +40,16 @@ output_formatted :: proc(format_string : string, h: os.Handle, task: ^TaskInfo, 
 					if config.color do write_string(sb, "\033[49m")
 					idx += end_idx+1
 				} else if var_name == "%(total)" {
-					write_i64(sb, task.result)
+					write_i64(sb, cast(i64)result.total)
 					idx += end_idx+1
 				} else if var_name == "%(code)" {
-					write_i64(sb, task.code)
+					write_i64(sb, cast(i64)result.code)
 					idx += end_idx+1
 				} else if var_name == "%(blank)" {
-					write_i64(sb, task.blank)
+					write_i64(sb, cast(i64)result.blank)
 					idx += end_idx+1
 				} else if var_name == "%(comment)" {
-					write_i64(sb, task.comment)
+					write_i64(sb, cast(i64)result.comment)
 					idx += end_idx+1
 				} else {
 					write_byte(sb, format_string[idx])
